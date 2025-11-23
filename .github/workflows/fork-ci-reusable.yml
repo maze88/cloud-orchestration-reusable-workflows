@@ -89,25 +89,23 @@ jobs:
         run: |
           echo DOCKER_REGISTRY=${{ inputs.registry-internal }} | tee -a $GITHUB_ENV
           echo DOCKER_TAG=${{ needs.determine_ref.outputs.github_ref_name }} | tee -a $GITHUB_ENV
-      - name: Store docker registry and tag for following jobs
-        id: store-docker-registry-and-tag
+      - name: Store docker registry and tags for following jobs
+        id: store-docker-registry-and-tags
         run: |
           echo DOCKER_REGISTRY=$DOCKER_REGISTRY >> $GITHUB_OUTPUT
           echo DOCKER_TAG=$DOCKER_TAG >> $GITHUB_OUTPUT
-          echo GIT_SHA_SHORT=$(git rev-parse --short HEAD) | tee -a $GITHUB_ENV
-          echo DEBUG0
-          git branch
-          echo DEBUG1
-          git branch -a
-          echo DEBUG2
-          git branch -a | grep 'almaslennikov-patch-'  # TODO: after test, change to 'network-operator-'
-          echo DEBUG3
-          git branch -a | grep 'almaslennikov-patch-' | sort -V  # TODO: after test, change to 'network-operator-'
+          latest_release_branch=$(git branch -a | grep 'network-operator-' | cut -d '/' -f 3- | sort -V | tail -1)  # example: network-operator-25.10.x
+          current_branch="${GITHUB_REF_NAME}"
+          if [ "$current_branch" = "$latest_release_branch" ]; then
+            echo "ADDITIONAL_DOCKER_TAGS=,latest,$(git rev-parse --short HEAD)" | tee -a $GITHUB_OUTPUT
+          else
+            echo "ADDITIONAL_DOCKER_TAGS=" | tee -a $GITHUB_OUTPUT
+          fi
           exit 88
     outputs:
-      docker_registry: ${{ steps.store-docker-registry-and-tag.outputs.DOCKER_REGISTRY }}
-      docker_tag: ${{ steps.store-docker-registry-and-tag.outputs.DOCKER_TAG }}
-      git_sha_short: ${{ steps.store-docker-registry-and-tag.outputs.GIT_SHA_SHORT }}
+      docker_registry: ${{ steps.store-docker-registry-and-tags.outputs.DOCKER_REGISTRY }}
+      docker_tag: ${{ steps.store-docker-registry-and-tags.outputs.DOCKER_TAG }}
+      git_sha_short: ${{ steps.store-docker-registry-and-tags.outputs.GIT_SHA_SHORT }}
 
   build_and_push_images:
     needs:
